@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 교무실 & 선생님 자리 찾기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-indigo-500 rounded-xl shadow-inner">
+                    <i class="fa-solid fa-school-flag text-2xl text-yellow-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">스마트 교무실 찾기</h1>
+                    <p class="text-xs text-indigo-200">선생님 위치 및 조직도 자동 스캔 배치표 시스템</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openModal('addModal')" class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center transition shadow-sm active:scale-95">
+                    <i class="fa-solid fa-user-plus mr-2"></i>직접 등록
+                </button>
+                <button onclick="openModal('aiModal')" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center transition shadow-md active:scale-95">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>배치표 AI 스캔/등록
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+        <!-- Search Bar -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-lg"></i>
+                </div>
+                <input type="text" id="searchInput" oninput="handleSearch()"
+                    placeholder="선생님 성함, 부서, 담임반(예: 1-2), 교무실(예: 본관 2층)을 검색하세요..."
+                    class="block w-full pl-11 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition text-base">
+                <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Category Tabs -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+            <div class="mb-3 flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-filter text-indigo-500"></i> 조직 및 부서 필터
+                </span>
+                <span id="totalCountBadge" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-medium">총 0명 등록됨</span>
+            </div>
+
+            <!-- Group Types: 학년별, 부서별, 교무실별 -->
+            <div class="flex flex-wrap gap-2 mb-3 border-b border-slate-100 pb-3">
+                <button onclick="setFilterGroup('all')" id="btn-group-all" class="filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm">전체보기</button>
+                <button onclick="setFilterGroup('grade')" id="btn-group-grade" class="filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">학년부</button>
+                <button onclick="setFilterGroup('dept')" id="btn-group-dept" class="filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">조직/부서별</button>
+                <button onclick="setFilterGroup('room')" id="btn-group-room" class="filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">교무실 위치별</button>
+            </div>
+
+            <!-- Detailed Sub Chips Filter -->
+            <div id="subFilterChips" class="flex flex-wrap gap-2 overflow-x-auto custom-scrollbar pb-1">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <!-- Teacher Cards Grid -->
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-users text-indigo-600"></i>
+                <span id="currentFilterLabel">전체 목록</span>
+            </h2>
+            <div class="flex gap-2">
+                <button onclick="confirmClearAll()" class="text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition flex items-center gap-1 font-medium">
+                    <i class="fa-regular fa-trash-can"></i> 전체 데이터 삭제
+                </button>
+            </div>
+        </div>
+
+        <div id="teacherGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Cards will be populated dynamically -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm mt-4">
+            <div class="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-user-slash"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-800 mb-1">선생님 정보가 없거나 검색 결과가 없습니다</h3>
+            <p class="text-xs text-slate-500 mb-4">직접 선생님 정보를 추가하거나 배치표 사진을 AI 스캔하여 등록해보세요.</p>
+            <div class="flex justify-center gap-3">
+                <button onclick="openModal('addModal')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow">직접 입력하기</button>
+                <button onclick="openModal('aiModal')" class="bg-amber-500 hover:bg-amber-600 text-slate-900 px-4 py-2 rounded-lg text-xs font-bold shadow">AI 배치표 스캔</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            교무실 위치 및 선생님 좌석안내 스마트 찾기 서비스 &copy; 브라우저 로컬 저장 전용
+        </div>
+    </footer>
+
+    <!-- MODAL 1: AI 배치표 자동 분석 등록 (이미지/텍스트 파싱) -->
+    <div id="aiModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 bg-gradient-to-r from-amber-500 to-indigo-600 text-white flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">AI 교무실 배치표 스마트 스캔</h3>
+                        <p class="text-xs text-amber-100">사진이나 텍스트를 입력하면 자동으로 부서와 선생님을 인식합니다.</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('aiModal')" class="text-white/80 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 custom-scrollbar flex-1">
+                <!-- Input Type Switch Tabs -->
+                <div class="flex border-b border-slate-200 text-sm font-semibold">
+                    <button id="tabImageBtn" onclick="switchAiTab('image')" class="py-2.5 px-4 border-b-2 border-indigo-600 text-indigo-600">
+                        <i class="fa-solid fa-image mr-1.5"></i>배치표 사진 업로드
+                    </button>
+                    <button id="tabTextBtn" onclick="switchAiTab('text')" class="py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                        <i class="fa-solid fa-file-lines mr-1.5"></i>텍스트 복사/붙여넣기
+                    </button>
+                </div>
+
+                <!-- IMAGE UPLOAD PANEL -->
+                <div id="aiPanelImage" class="space-y-4">
+                    <div class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 rounded-xl p-6 text-center transition cursor-pointer" onclick="document.getElementById('imageFileInput').click()">
+                        <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="previewImage(this)">
+                        <div id="uploadPlaceholder">
+                            <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-400 mb-2"></i>
+                            <p class="text-sm font-medium text-slate-700">교무실 배치표 또는 좌석도 사진 클릭/드래그</p>
+                            <p class="text-xs text-slate-400 mt-1">PNG, JPG, JPEG 이미지 파일 지원 (서식 자동 정밀 분석)</p>
+                        </div>
+                        <div id="imagePreviewContainer" class="hidden flex flex-col items-center">
+                            <img id="imagePreview" class="max-h-56 rounded-lg shadow-sm mb-2 object-contain border border-slate-200">
+                            <button type="button" onclick="event.stopPropagation(); removePreviewImage();" class="text-xs text-rose-600 hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-trash"></i> 이미지 삭제 및 다시 선택
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TEXT INPUT PANEL -->
+                <div id="aiPanelText" class="space-y-3 hidden">
+                    <label class="block text-xs font-bold text-slate-600">배치표 텍스트 직접 입력 (한글/엑셀 붙여넣기 가능)</label>
+                    <textarea id="aiTextInput" rows="6" placeholder="예시:
+[1학년부 - 본관 2층 A101]
+1-1 담임 김철수, 1-2 담임 이영희, 1-3 박민수
+[3학년부 & 체육부 - 별관 3층]
+3학년부장 홍길동, 체육부장 강호동, - (빈자리), 3-1 성춘향"
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white leading-relaxed"></textarea>
+                    <p class="text-[11px] text-slate-400">※ 헤더(교무실/부서)와 이름, 직책/담임반을 자동으로 짝짓고 빈자리(-)는 자동 제거합니다.</p>
+                </div>
+
+                <!-- Status / Loader -->
+                <div id="aiLoader" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-2"></div>
+                    <p class="text-xs font-bold text-indigo-900" id="loaderTitle">Gemini AI가 배치표 서식을 정밀 분석 중입니다...</p>
+                    <p class="text-[11px] text-indigo-600 mt-0.5">선생님 이름, 담임반, 부서 및 교무실 위치를 자동으로 정돈하고 있습니다.</p>
+                </div>
+
+                <!-- Parse Preview Result -->
+                <div id="parseResultContainer" class="hidden space-y-3">
+                    <div class="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                        <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                            AI 인식 성공 (<span id="parsedCount">0</span>명 감지됨)
+                        </span>
+                        <span class="text-[11px] text-emerald-600">아래 목록을 확인 후 데이터에 추가하세요.</span>
+                    </div>
+
+                    <div id="parsedList" class="max-h-48 overflow-y-auto custom-scrollbar border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                        <!-- Preview Items -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeModal('aiModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg">취소</button>
+                <button id="btnStartAiProcess" onclick="processAiInput()" class="px-5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-lg shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt"></i> AI 스캔 및 자동인식 실행
+                </button>
+                <button id="btnSaveParsed" onclick="saveParsedData()" class="hidden px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i> 인식된 선생님 전체 추가하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: 단일 선생님 직접 추가/수정 -->
+    <div id="addModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+            <div class="p-4 bg-indigo-600 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span id="manualModalTitle">선생님 정보 직접 추가</span>
+                </h3>
+                <button onclick="closeModal('addModal')" class="text-white/80 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="manualForm" onsubmit="handleManualSubmit(event)" class="p-5 space-y-4">
+                <input type="hidden" id="editTeacherId" value="">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">선생님 성함 <span class="text-rose-500">*</span></label>
+                    <input type="text" id="inputName" required placeholder="예: 김철수"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">소속 부서 / 학년 <span class="text-rose-500">*</span></label>
+                        <input type="text" id="inputDept" required placeholder="예: 1학년부, 체육부, 행정실" list="deptSuggestions"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                        <datalist id="deptSuggestions">
+                            <option value="1학년부"><option value="2학년부"><option value="3학년부">
+                            <option value="예체능부"><option value="진로상담부"><option value="행정실"><option value="보건실">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">직책 / 담임반</label>
+                        <input type="text" id="inputRole" placeholder="예: 1-1 담임, 부장"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">이용 교무실 위치 <span class="text-rose-500">*</span></label>
+                    <input type="text" id="inputRoom" required placeholder="예: 본관 2층 A101, 체육관 교무실"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">좌석 / 자리 상세 정보 (선택)</label>
+                    <input type="text" id="inputSeat" placeholder="예: 창가 3번째 자리, 출입문 앞"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('addModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">취소</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs z-50 transform translate-y-20 opacity-0 transition-all duration-300">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-indigo-400 text-base"></i>
+        <span id="toastMsg">메시지</span>
+    </div>
+
+    <!-- SCRIPT SECTION -->
+    <script>
+        // Global State - Initialize with empty array so initial screen has no data
+        let teachers = [];
+        let currentGroupFilter = 'all'; // 'all', 'grade', 'dept', 'room'
+        let currentSubFilter = 'all';
+        let parsedTempData = [];
+        let currentAiTab = 'image';
+        let selectedBase64Image = null;
+
+        // Init App
+        window.onload = function() {
+            loadTeachers();
+            renderSubFilterChips();
+            renderTeachers();
+        };
+
+        // Local Storage Handlers
+        function loadTeachers() {
+            const stored = localStorage.getItem('school_staff_data');
+            if (stored) {
+                try {
+                    teachers = JSON.parse(stored);
+                } catch(e) {
+                    teachers = [];
+                }
+            } else {
+                teachers = [];
+                saveTeachers();
+            }
+        }
+
+        function saveTeachers() {
+            localStorage.setItem('school_staff_data', JSON.stringify(teachers));
+            updateCountBadge();
+        }
+
+        function updateCountBadge() {
+            document.getElementById('totalCountBadge').innerText = `총 ${teachers.length}명 등록됨`;
+        }
+
+        // Render Teachers Grid
+        function renderTeachers() {
+            const grid = document.getElementById('teacherGrid');
+            const emptyState = document.getElementById('emptyState');
+            const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            grid.innerHTML = '';
+            updateCountBadge();
+
+            // Filter logic
+            const filtered = teachers.filter(t => {
+                // Search Keyword Filter
+                const matchesSearch = !searchVal || 
+                    t.name.toLowerCase().includes(searchVal) ||
+                    (t.dept && t.dept.toLowerCase().includes(searchVal)) ||
+                    (t.role && t.role.toLowerCase().includes(searchVal)) ||
+                    (t.room && t.room.toLowerCase().includes(searchVal)) ||
+                    (t.seat && t.seat.toLowerCase().includes(searchVal));
+
+                if (!matchesSearch) return false;
+
+                // Tab Filter
+                if (currentSubFilter === 'all') return true;
+
+                if (currentGroupFilter === 'grade') {
+                    return (t.dept && t.dept.includes(currentSubFilter)) || (t.role && t.role.includes(currentSubFilter));
+                } else if (currentGroupFilter === 'dept') {
+                    return t.dept === currentSubFilter;
+                } else if (currentGroupFilter === 'room') {
+                    return t.room === currentSubFilter;
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                grid.classList.add('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+                grid.classList.remove('hidden');
+            }
+
+            // Create Cards
+            filtered.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition relative group flex flex-col justify-between';
+
+                // Department color styling
+                let deptBadgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                if (t.dept.includes('1학년')) deptBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                else if (t.dept.includes('2학년')) deptBadgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                else if (t.dept.includes('3학년')) deptBadgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                else if (t.dept.includes('예체능') || t.dept.includes('체육')) deptBadgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                else if (t.dept.includes('행정') || t.dept.includes('보건')) deptBadgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+
+                card.innerHTML = `
+                    <div>
+                        <!-- Header / Action Delete & Edit -->
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full border ${deptBadgeColor}">
+                                ${escapeHtml(t.dept || '부서미정')}
+                            </span>
+                            <div class="flex items-center space-x-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition">
+                                <button onclick="editTeacher('${t.id}')" title="수정" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onclick="deleteTeacher(event, '${t.id}')" title="삭제" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50">
+                                    <i class="fa-regular fa-trash-can text-xs pointer-events-none"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Name & Role -->
+                        <div class="mb-4">
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                ${escapeHtml(t.name)}
+                                ${t.role ? `<span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${escapeHtml(t.role)}</span>` : ''}
+                            </h3>
+                        </div>
+
+                        <!-- Info details -->
+                        <div class="space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-location-dot text-indigo-500 w-4 text-center"></i>
+                                <span class="font-medium text-slate-700">${escapeHtml(t.room || '교무실 위치 미지정')}</span>
+                            </div>
+                            ${t.seat ? `
+                            <div class="flex items-center gap-2 text-slate-500">
+                                <i class="fa-solid fa-chair text-slate-400 w-4 text-center"></i>
+                                <span>${escapeHtml(t.seat)}</span>
+                            </div>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Footer Callout / Quick Location Info -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[11px] text-slate-400">
+                        <span><i class="fa-regular fa-building mr-1"></i>${escapeHtml((t.room || '교무실').split(' ')[0])}</span>
+                        <span class="text-indigo-600 font-semibold cursor-pointer hover:underline" onclick="searchByRoom('${escapeHtml(t.room)}')">동일 교무실 보기 &rarr;</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Sub-filter tabs rendering
+        function setFilterGroup(group) {
+            currentGroupFilter = group;
+            currentSubFilter = 'all';
+
+            document.querySelectorAll('.filter-group-btn').forEach(btn => {
+                btn.className = 'filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200';
+            });
+            const activeBtn = document.getElementById(`btn-group-${group}`);
+            if(activeBtn) activeBtn.className = 'filter-group-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm';
+
+            renderSubFilterChips();
+            renderTeachers();
+        }
+
+        function setSubFilter(val, label) {
+            currentSubFilter = val;
+            document.getElementById('currentFilterLabel').innerText = label;
+
+            document.querySelectorAll('.sub-chip').forEach(c => {
+                c.classList.remove('bg-indigo-600', 'text-white');
+                c.classList.add('bg-slate-100', 'text-slate-600');
+            });
+            if(window.event && window.event.currentTarget) {
+                window.event.currentTarget.classList.remove('bg-slate-100', 'text-slate-600');
+                window.event.currentTarget.classList.add('bg-indigo-600', 'text-white');
+            }
+
+            renderTeachers();
+        }
+
+        function renderSubFilterChips() {
+            const container = document.getElementById('subFilterChips');
+            container.innerHTML = '';
+
+            let items = [];
+            if (currentGroupFilter === 'all') {
+                items = [];
+            } else if (currentGroupFilter === 'grade') {
+                items = ['1학년', '2학년', '3학년'];
+            } else if (currentGroupFilter === 'dept') {
+                const deptSet = new Set(teachers.map(t => t.dept).filter(Boolean));
+                items = Array.from(deptSet);
+            } else if (currentGroupFilter === 'room') {
+                const roomSet = new Set(teachers.map(t => t.room).filter(Boolean));
+                items = Array.from(roomSet);
+            }
+
+            // Always add 'All' chip
+            const allChip = document.createElement('button');
+            allChip.className = `sub-chip px-3 py-1 text-xs rounded-full font-medium transition ${currentSubFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            allChip.innerText = '전체 보기';
+            allChip.onclick = (e) => setSubFilter('all', '전체 목록');
+            container.appendChild(allChip);
+
+            items.forEach(item => {
+                const chip = document.createElement('button');
+                chip.className = `sub-chip px-3 py-1 text-xs rounded-full font-medium transition ${currentSubFilter === item ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+                chip.innerText = item;
+                chip.onclick = (e) => setSubFilter(item, `${item} 목록`);
+                container.appendChild(chip);
+            });
+        }
+
+        // Search Handlers
+        function handleSearch() {
+            const input = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (input.value.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderTeachers();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            renderTeachers();
+        }
+
+        function searchByRoom(roomName) {
+            document.getElementById('searchInput').value = roomName;
+            handleSearch();
+        }
+
+        // Delete Teacher Handlers
+        function deleteTeacher(event, id) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            // Execute deletion
+            teachers = teachers.filter(t => String(t.id) !== String(id));
+            saveTeachers();
+            renderSubFilterChips();
+            renderTeachers();
+            showToast('선생님 정보가 삭제되었습니다.', 'info');
+        }
+
+        function confirmClearAll() {
+            if (teachers.length === 0) {
+                showToast('삭제할 데이터가 없습니다.', 'warning');
+                return;
+            }
+            teachers = [];
+            saveTeachers();
+            renderSubFilterChips();
+            renderTeachers();
+            showToast('전체 데이터가 삭제되었습니다.', 'info');
+        }
+
+        // Edit Teacher
+        function editTeacher(id) {
+            const target = teachers.find(t => String(t.id) === String(id));
+            if (!target) return;
+
+            document.getElementById('editTeacherId').value = target.id;
+            document.getElementById('inputName').value = target.name || '';
+            document.getElementById('inputDept').value = target.dept || '';
+            document.getElementById('inputRole').value = target.role || '';
+            document.getElementById('inputRoom').value = target.room || '';
+            document.getElementById('inputSeat').value = target.seat || '';
+            
+            document.getElementById('manualModalTitle').innerText = '선생님 정보 수정';
+            openModal('addModal');
+        }
+
+        // Manual Submit
+        function handleManualSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editTeacherId').value;
+            const name = document.getElementById('inputName').value.trim();
+            const dept = document.getElementById('inputDept').value.trim();
+            const role = document.getElementById('inputRole').value.trim();
+            const room = document.getElementById('inputRoom').value.trim();
+            const seat = document.getElementById('inputSeat').value.trim();
+
+            if (!name || !dept || !room) {
+                showToast('성함, 부서, 교무실 위치는 필수 항목입니다.', 'warning');
+                return;
+            }
+
+            if (editId) {
+                // Update existing
+                const index = teachers.findIndex(t => t.id === editId);
+                if (index !== -1) {
+                    teachers[index] = { id: editId, name, dept, role, room, seat };
+                    showToast(`${name} 선생님 정보가 수정되었습니다.`);
+                }
+            } else {
+                // Check Duplicate (Same name and same department)
+                const isDuplicate = teachers.some(t => t.name === name && t.dept === dept);
+                if (isDuplicate) {
+                    showToast(`이미 '${dept}'에 등록된 '${name}' 선생님이 존재합니다.`, 'warning');
+                    return;
+                }
+
+                // Create new
+                const newTeacher = {
+                    id: Date.now().toString(),
+                    name, dept, role, room, seat
+                };
+                teachers.unshift(newTeacher);
+                showToast(`${name} 선생님이 등록되었습니다.`);
+            }
+
+            saveTeachers();
+            closeModal('addModal');
+            renderSubFilterChips();
+            renderTeachers();
+        }
+
+        // AI TAB HANDLERS
+        function switchAiTab(tab) {
+            currentAiTab = tab;
+            const imgBtn = document.getElementById('tabImageBtn');
+            const txtBtn = document.getElementById('tabTextBtn');
+            const panelImg = document.getElementById('aiPanelImage');
+            const panelTxt = document.getElementById('aiPanelText');
+
+            if (tab === 'image') {
+                imgBtn.className = 'py-2.5 px-4 border-b-2 border-indigo-600 text-indigo-600';
+                txtBtn.className = 'py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700';
+                panelImg.classList.remove('hidden');
+                panelTxt.classList.add('hidden');
+            } else {
+                txtBtn.className = 'py-2.5 px-4 border-b-2 border-indigo-600 text-indigo-600';
+                imgBtn.className = 'py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700';
+                panelTxt.classList.remove('hidden');
+                panelImg.classList.add('hidden');
+            }
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    selectedBase64Image = e.target.result.split(',')[1];
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('uploadPlaceholder').classList.add('hidden');
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function removePreviewImage() {
+            selectedBase64Image = null;
+            document.getElementById('imageFileInput').value = '';
+            document.getElementById('imagePreview').src = '';
+            document.getElementById('uploadPlaceholder').classList.remove('hidden');
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+        }
+
+        // CALL GEMINI AI API
+        async function processAiInput() {
+            const loader = document.getElementById('aiLoader');
+            const btnProcess = document.getElementById('btnStartAiProcess');
+            const btnSave = document.getElementById('btnSaveParsed');
+            const resultBox = document.getElementById('parseResultContainer');
+
+            let payloadParts = [];
+
+            if (currentAiTab === 'image') {
+                if (!selectedBase64Image) {
+                    showToast('배치표 이미지를 업로드해주세요.', 'warning');
+                    return;
+                }
+                payloadParts = [
+                    {
+                        text: `당신은 학교 교무실 배치표 정밀 OCR 및 조직도 파싱 전문가입니다. 
+제공된 교무실 배치표 사진을 정밀 분석하여 모든 선생님 정보를 추출하세요.
+
+규칙:
+1. 헤더/부서/교무실 위치(예: 1학년부 A101, 체육교무실 등)를 파악하세요.
+2. 직책 및 담임반(예: 1-1, 3학년부장, 진로상담, 체육)과 선생님 성함을 1:1로 추출하세요.
+3. 공석, 빈자리, "-", "공백", "미정" 표기는 완전히 무시하고 제외하세요.
+4. 소속 부서(dept), 교무실 위치(room), 선생님 성함(name), 직책/담임반(role), 좌석특징(seat)으로 나누세요.`
+                    },
+                    {
+                        inlineData: {
+                            mimeType: "image/png",
+                            data: selectedBase64Image
+                        }
+                    }
+                ];
+            } else {
+                const rawText = document.getElementById('aiTextInput').value.trim();
+                if (!rawText) {
+                    showToast('배치표 텍스트를 입력해주세요.', 'warning');
+                    return;
+                }
+                payloadParts = [
+                    {
+                        text: `다음 학교 교무실 배치표 텍스트를 분석하여 선생님 데이터를 추출하세요:
+\n---
+${rawText}
+---
+\n규칙:
+1. 부서 및 교무실 위치, 성함, 직책/담임반을 정확히 구별하세요.
+2. 공석, 빈자리, "-"는 자동으로 제외하세요.`
+                    }
+                ];
+            }
+
+            // Show Loader
+            loader.classList.remove('hidden');
+            btnProcess.classList.add('hidden');
+            resultBox.classList.add('hidden');
+
+            const systemPrompt = "Respond ONLY with a valid JSON array of objects representing teachers. Each object must have keys: 'name' (string), 'dept' (string), 'role' (string), 'room' (string), 'seat' (string). Do not include markdown code block formatting like ```json or outside text.";
+
+            const payload = {
+                contents: [{ role: "user", parts: payloadParts }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "name": { "type": "STRING" },
+                                "dept": { "type": "STRING" },
+                                "role": { "type": "STRING" },
+                                "room": { "type": "STRING" },
+                                "seat": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["name", "dept", "role", "room", "seat"]
+                        }
+                    }
+                }
+            };
+
+            const apiKey = ""; // Canvas runtime provides standard key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                loader.classList.add('hidden');
+
+                if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+                    const rawJson = result.candidates[0].content.parts[0].text;
+                    try {
+                        parsedTempData = JSON.parse(rawJson);
+                        renderParsedResults(parsedTempData);
+                        resultBox.classList.remove('hidden');
+                        btnSave.classList.remove('hidden');
+                    } catch (err) {
+                        console.error("JSON parse error", err);
+                        showToast('AI 분석 결과를 처리하는 중 오류가 발생했습니다.', 'error');
+                        btnProcess.classList.remove('hidden');
+                    }
+                } else {
+                    showToast('배치표에서 선생님 정보를 찾을 수 없습니다.', 'warning');
+                    btnProcess.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                loader.classList.add('hidden');
+                btnProcess.classList.remove('hidden');
+                showToast('AI 스캔 통신에 실패했습니다. 입력값을 확인해주세요.', 'error');
+            }
+        }
+
+        // Retry helper with exponential backoff
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            try {
+                const res = await fetch(url, options);
+                if (!res.ok && res.status >= 500) throw new Error(`Server Error ${res.status}`);
+                return res;
+            } catch (err) {
+                if (retries <= 0) throw err;
+                await new Promise(r => setTimeout(r, delay));
+                return fetchWithRetry(url, options, retries - 1, delay * 2);
+            }
+        }
+
+        // Render AI Parsed Preview List
+        function renderParsedResults(dataList) {
+            const container = document.getElementById('parsedList');
+            document.getElementById('parsedCount').innerText = dataList.length;
+            container.innerHTML = '';
+
+            if (dataList.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">인식된 데이터가 없습니다.</div>`;
+                return;
+            }
+
+            dataList.forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = 'p-3 flex items-center justify-between hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100">${item.dept || '부서미정'}</span>
+                        <div>
+                            <span class="text-xs font-bold text-slate-800">${escapeHtml(item.name)}</span>
+                            ${item.role ? `<span class="text-[11px] text-slate-500 ml-1.5">(${escapeHtml(item.role)})</span>` : ''}
+                            <p class="text-[11px] text-slate-400 mt-0.5"><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${escapeHtml(item.room || '교무실 미정')}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeParsedItem(${idx})" class="text-slate-400 hover:text-rose-500 p-1">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function removeParsedItem(index) {
+            parsedTempData.splice(index, 1);
+            renderParsedResults(parsedTempData);
+        }
+
+        function saveParsedData() {
+            if (!parsedTempData || parsedTempData.length === 0) {
+                showToast('추가할 선생님 데이터가 없습니다.', 'warning');
+                return;
+            }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+
+            // Append unique items (Check duplication by name + dept)
+            parsedTempData.forEach(item => {
+                const name = item.name || '선생님';
+                const dept = item.dept || '미지정부서';
+                
+                // Check if already exists in main list
+                const exists = teachers.some(t => t.name === name && t.dept === dept);
+                if (!exists) {
+                    teachers.unshift({
+                        id: (Date.now() + Math.random()).toString(),
+                        name: name,
+                        dept: dept,
+                        role: item.role || '',
+                        room: item.room || '교무실 미정',
+                        seat: item.seat || ''
+                    });
+                    addedCount++;
+                } else {
+                    skippedCount++;
+                }
+            });
+
+            saveTeachers();
+            closeModal('aiModal');
+            renderSubFilterChips();
+            renderTeachers();
+
+            if (addedCount > 0 && skippedCount > 0) {
+                showToast(`${addedCount}명 신규 등록 완료 (${skippedCount}명 중복 제외됨)`);
+            } else if (addedCount > 0) {
+                showToast(`${addedCount}명의 선생님 배치가 성공적으로 등록되었습니다!`);
+            } else {
+                showToast('모든 선생님이 이미 등록되어 있어 추가되지 않았습니다.', 'warning');
+            }
+        }
+
+        // Modal Controls
+        function openModal(id) {
+            if (id === 'addModal' && !document.getElementById('editTeacherId').value) {
+                document.getElementById('manualForm').reset();
+                document.getElementById('editTeacherId').value = '';
+                document.getElementById('manualModalTitle').innerText = '선생님 정보 직접 추가';
+            }
+            if (id === 'aiModal') {
+                // Reset AI modal
+                parsedTempData = [];
+                selectedBase64Image = null;
+                document.getElementById('aiTextInput').value = '';
+                document.getElementById('parseResultContainer').classList.add('hidden');
+                document.getElementById('btnSaveParsed').classList.add('hidden');
+                document.getElementById('btnStartAiProcess').classList.remove('hidden');
+                document.getElementById('aiLoader').classList.add('hidden');
+                removePreviewImage();
+            }
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Toast Helper
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400 text-base';
+            } else if (type === 'warning') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-amber-400 text-base';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // HTML Escape Helper
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
